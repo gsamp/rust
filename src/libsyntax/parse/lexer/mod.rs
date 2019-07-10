@@ -1,11 +1,12 @@
 use crate::parse::ParseSess;
 use crate::parse::token::{self, Token, TokenKind};
-use crate::symbol::{Symbol};
+use crate::symbol::{sym, Symbol};
 use crate::parse::unescape;
 use crate::parse::unescape_error_reporting::{emit_unescape_error, push_escaped_char};
 
 use errors::{FatalError, Diagnostic, DiagnosticBuilder};
 use syntax_pos::{BytePos, Pos, Span, NO_EXPANSION};
+use rustc_lexer::Base;
 
 use std::borrow::Cow;
 use std::char;
@@ -397,19 +398,6 @@ impl<'a> StringReader<'a> {
         suffix_start: BytePos,
         kind: rustc_lexer::LiteralKind
     ) -> (token::LitKind, Symbol) {
-        let base = {
-            let s = self.str_from(start);
-            if s.starts_with("0x") {
-                16
-            } else if s.starts_with("0o") {
-                8
-            } else if s.starts_with("0b") {
-                2
-            } else {
-                10
-            }
-        };
-
         match kind {
             rustc_lexer::LiteralKind::Char { terminated } => {
                 if !terminated {
@@ -489,16 +477,16 @@ impl<'a> StringReader<'a> {
                 let id = self.symbol_from_to(content_start, content_end);
                 (token::ByteStrRaw(n_hashes), id)
             }
-            rustc_lexer::LiteralKind::Int { empty_int } => {
+            rustc_lexer::LiteralKind::Int { base, empty_int } => {
                 if empty_int {
                     self.err_span_(start, suffix_start, "no valid digits found for number");
-                    (token::Integer, Symbol::intern("0"))
+                    (token::Integer, sym::integer(0))
                 } else {
                     self.validate_int_literal(base, start, suffix_start);
                     (token::Integer, self.symbol_from_to(start, suffix_start))
                 }
             },
-            rustc_lexer::LiteralKind::Float { empty_exponent } => {
+            rustc_lexer::LiteralKind::Float { base, empty_exponent } => {
                 if empty_exponent {
                     let mut err = self.struct_span_fatal(
                         start, self.pos,
@@ -508,15 +496,15 @@ impl<'a> StringReader<'a> {
                 }
 
                 match base {
-                    16 => {
+                    Base::Hexadecimal => {
                         self.err_span_(start, suffix_start,
                                        "hexadecimal float literal is not supported")
                     }
-                    8 => {
+                    Base::Octal => {
                         self.err_span_(start, suffix_start,
                                        "octal float literal is not supported")
                     }
-                    2 => {
+                    Base::Binary => {
                         self.err_span_(start, suffix_start,
                                        "binary float literal is not supported")
                     }
@@ -730,11 +718,12 @@ impl<'a> StringReader<'a> {
         })
     }
 
-    fn validate_int_literal(&self, base: u32, content_start: BytePos, content_end: BytePos) {
-        match base {
-            2 | 8 => (),
+    fn validate_int_literal(&self, base: Base, content_start: BytePos, content_end: BytePos) {
+        let base = match base {
+            Base::Binary => 2,
+            Base::Octal => 8,
             _ => return,
-        }
+        };
         let s = self.str_from_to(content_start + BytePos(2), content_end);
         for (idx, c) in s.char_indices() {
             let idx = idx as u32;

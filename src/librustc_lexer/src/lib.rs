@@ -74,8 +74,8 @@ use self::TokenKind::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LiteralKind {
-    Int { empty_int: bool },
-    Float { empty_exponent: bool },
+    Int { base: Base, empty_int: bool },
+    Float { base: Base, empty_exponent: bool },
     Char { terminated: bool },
     Byte { terminated: bool },
     Str { terminated: bool },
@@ -84,6 +84,14 @@ pub enum LiteralKind {
     RawByteStr { n_hashes: usize, started: bool, terminated: bool },
 }
 use self::LiteralKind::*;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Base {
+    Binary,
+    Octal,
+    Hexadecimal,
+    Decimal
+}
 
 impl Token {
     fn new(kind: TokenKind, len: usize) -> Token {
@@ -406,14 +414,21 @@ impl Cursor<'_> {
 
     fn number(&mut self, first_digit: char) -> LiteralKind {
         debug_assert!('0' <= self.prev() && self.prev() <= '9');
-
+        let mut base = Base::Decimal;
         if first_digit == '0' {
             let has_digits = match self.nth_char(0) {
-                'b' | 'o' => {
+                'b' => {
+                    base = Base::Binary;
+                    self.bump();
+                    self.eat_decimal_digits()
+                }
+                'o' => {
+                    base = Base::Octal;
                     self.bump();
                     self.eat_decimal_digits()
                 }
                 'x' => {
+                    base = Base::Hexadecimal;
                     self.bump();
                     self.eat_hex_digits()
                 }
@@ -423,11 +438,11 @@ impl Cursor<'_> {
                 }
                 _ => {
                     // just a 0
-                    return Int { empty_int: false };
+                    return Int { base, empty_int: false };
                 }
             };
             if !has_digits {
-                return Int { empty_int: true };
+                return Int { base, empty_int: true };
             }
         } else {
             self.eat_decimal_digits();
@@ -454,14 +469,14 @@ impl Cursor<'_> {
                         _ => (),
                     }
                 }
-                Float { empty_exponent }
+                Float { base, empty_exponent }
             }
             'e' | 'E' => {
                 self.bump();
                 let empty_exponent = self.float_exponent().is_err();
-                Float { empty_exponent }
+                Float { base, empty_exponent }
             }
-            _ => Int { empty_int: false },
+            _ => Int { base, empty_int: false },
         }
     }
 
