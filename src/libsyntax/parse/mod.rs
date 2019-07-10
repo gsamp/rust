@@ -45,10 +45,10 @@ pub struct ParseSess {
     /// Places where raw identifiers were used. This is used for feature-gating raw identifiers.
     pub raw_identifier_spans: Lock<Vec<Span>>,
     /// The registered diagnostics codes.
-    crate registered_diagnostics: Lock<ErrorMap>,
+    pub registered_diagnostics: Lock<ErrorMap>,
     /// Used to determine and report recursive module inclusions.
-    included_mod_stack: Lock<Vec<PathBuf>>,
-    source_map: Lrc<SourceMap>,
+    pub included_mod_stack: Lock<Vec<PathBuf>>,
+    pub source_map: Lrc<SourceMap>,
     pub buffered_lints: Lock<Vec<BufferedEarlyLint>>,
     /// Contains the spans of block expressions that could have been incomplete based on the
     /// operation token that followed it, but that the parser cannot identify without further
