@@ -9,6 +9,10 @@ name = "syntax"
 path = "lib.rs"
 doctest = false
 
+[[bin]]
+name = "syntax"
+path = "main.rs"
+
 [dependencies]
 bitflags = "1.0"
 serialize = { path = "../libserialize" }
