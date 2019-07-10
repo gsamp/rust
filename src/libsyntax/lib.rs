@@ -9,7 +9,7 @@
 
 #![deny(rust_2018_idioms)]
 #![deny(unused_lifetimes)]
-
+#![feature(rustc_private)]
 #![feature(bind_by_move_pattern_guards)]
 #![feature(box_syntax)]
 #![feature(const_fn)]
@@ -186,4 +186,4 @@ pub mod early_buffered_lints;
 #[cfg(test)]
 mod test_snippet;
 
-__build_diagnostic_array! { libsyntax, DIAGNOSTICS }
+// __build_diagnostic_array! { libsyntax, DIAGNOSTICS }
