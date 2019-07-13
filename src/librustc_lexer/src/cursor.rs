@@ -1,6 +1,7 @@
 use std::str::Chars;
 
 pub(crate) struct Cursor<'a> {
+    initial_len: usize,
     chars: Chars<'a>,
     #[cfg(debug_assertions)]
     prev: char,
@@ -11,6 +12,7 @@ pub(crate) const EOF_CHAR: char = '\0';
 impl<'a> Cursor<'a> {
     pub(crate) fn new(input: &'a str) -> Cursor<'a> {
         Cursor {
+            initial_len: input.len(),
             chars: input.chars(),
             #[cfg(debug_assertions)]
             prev: EOF_CHAR,
@@ -34,6 +36,13 @@ impl<'a> Cursor<'a> {
     pub(crate) fn is_eof(&self) -> bool {
         self.chars.as_str().is_empty()
     }
+    pub(crate) fn len_consumed(&self) -> usize {
+        self.initial_len - self.chars.as_str().len()
+    }
+    /// Returns an iterator over the remaining characters.
+    fn chars(&self) -> Chars<'a> {
+        self.chars.clone()
+    }
     /// Moves to the next character.
     pub(crate) fn bump(&mut self) -> Option<char> {
         let c = self.chars.next()?;
@@ -44,12 +53,5 @@ impl<'a> Cursor<'a> {
         }
 
         Some(c)
-    }
-    pub(crate) fn leftover(&self) -> usize {
-        self.chars.as_str().len()
-    }
-    /// Returns an iterator over the remaining characters.
-    fn chars(&self) -> Chars<'a> {
-        self.chars.clone()
     }
 }

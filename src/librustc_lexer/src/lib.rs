@@ -125,8 +125,6 @@ pub fn tokenize(mut input: &str) -> impl Iterator<Item = Token> + '_ {
 
 impl Cursor<'_> {
     fn advance_token(&mut self) -> Token {
-        let initial_len = self.leftover();
-
         let first_char = self.bump().unwrap();
         let token_kind = match first_char {
             '/' => match self.nth_char(0) {
@@ -145,7 +143,7 @@ impl Cursor<'_> {
                 ('#', c1) if character_properties::is_id_start(c1) => self.raw_ident(),
                 ('#', _) | ('"', _) => {
                     let (n_hashes, started, terminated) = self.raw_double_quoted_string();
-                    let suffix_start = initial_len - self.leftover();
+                    let suffix_start = self.len_consumed();
                     if terminated {
                         self.literal_suffix();
                     }
@@ -158,7 +156,7 @@ impl Cursor<'_> {
                 ('\'', _) => {
                     self.bump();
                     let terminated = self.single_quoted_string();
-                    let suffix_start = initial_len - self.leftover();
+                    let suffix_start = self.len_consumed();
                     if terminated {
                         self.literal_suffix();
                     }
@@ -168,7 +166,7 @@ impl Cursor<'_> {
                 ('"', _) => {
                     self.bump();
                     let terminated = self.double_quoted_string();
-                    let suffix_start = initial_len - self.leftover();
+                    let suffix_start = self.len_consumed();
                     if terminated {
                         self.literal_suffix();
                     }
@@ -178,7 +176,7 @@ impl Cursor<'_> {
                 ('r', '"') | ('r', '#') => {
                     self.bump();
                     let (n_hashes, started, terminated) = self.raw_double_quoted_string();
-                    let suffix_start = initial_len - self.leftover();
+                    let suffix_start = self.len_consumed();
                     if terminated {
                         self.literal_suffix();
                     }
@@ -190,7 +188,7 @@ impl Cursor<'_> {
             c if character_properties::is_id_start(c) => self.ident(),
             c @ '0'..='9' => {
                 let literal_kind = self.number(c);
-                let suffix_start = initial_len - self.leftover();
+                let suffix_start = self.len_consumed();
                 self.literal_suffix();
                 TokenKind::Literal { kind: literal_kind, suffix_start }
             }
@@ -328,10 +326,10 @@ impl Cursor<'_> {
                     Percent
                 }
             }
-            '\'' => self.lifetime_or_char(initial_len),
+            '\'' => self.lifetime_or_char(),
             '"' => {
                 let terminated = self.double_quoted_string();
-                let suffix_start = initial_len - self.leftover();
+                let suffix_start = self.len_consumed();
                 if terminated {
                     self.literal_suffix();
                 }
@@ -340,7 +338,7 @@ impl Cursor<'_> {
             }
             _ => Unknown,
         };
-        Token::new(token_kind, initial_len - self.leftover())
+        Token::new(token_kind, self.len_consumed())
     }
 
     fn line_comment(&mut self) -> TokenKind {
@@ -480,7 +478,7 @@ impl Cursor<'_> {
         }
     }
 
-    fn lifetime_or_char(&mut self, initial_len: usize) -> TokenKind {
+    fn lifetime_or_char(&mut self) -> TokenKind {
         debug_assert!(self.prev() == '\'');
         if (character_properties::is_id_start(self.nth_char(0))
             // FIXME: unicode numeric, like ¾ does not really make sense here
@@ -495,13 +493,13 @@ impl Cursor<'_> {
             return if self.nth_char(0) == '\'' {
                 self.bump();
                 let kind = Char { terminated: true };
-                Literal { kind, suffix_start: initial_len - self.leftover() }
+                Literal { kind, suffix_start: self.len_consumed() }
             } else {
                 Lifetime
             };
         }
         let terminated = self.single_quoted_string();
-        let suffix_start = initial_len - self.leftover();
+        let suffix_start = self.len_consumed();
         if terminated {
             self.literal_suffix();
         }
