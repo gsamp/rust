@@ -135,8 +135,10 @@ impl<'a> StringReader<'a> {
 
         debug!("try_next_token: {:?}({:?})", token.kind, self.str_from(start));
 
-        let kind = self.cook_lexer_token(token.kind, start)
-            .map_err(|err| self.fatal_errs.push(err))?;
+        let kind = match self.cook_lexer_token(token.kind, start) {
+            Ok(it) => it,
+            Err(err) => return Err(self.fatal_errs.push(err)),
+        };
 
         let span = self.mk_sp(start, self.pos);
         Ok(Token::new(kind, span))
